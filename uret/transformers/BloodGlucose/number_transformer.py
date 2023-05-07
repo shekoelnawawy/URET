@@ -45,7 +45,7 @@ class NumberTransformer(Transformer):
                     input_constraints[key], float
                 ):  # If not provided, it is asumed to be abs
                     input_constraints[key] = {}
-                    input_constraints[key]["value"] = temp_val
+                    input_constraints[key]["value"] = 0  # temp_val
                     input_constraints[key]["type"] = "abs"
                 elif "type" not in input_constraints[key].keys():
                     input_constraints[key]["type"] = "abs"
