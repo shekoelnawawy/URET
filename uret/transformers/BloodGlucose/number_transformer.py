@@ -126,7 +126,7 @@ class NumberTransformer(Transformer):
                 if (method == 3 or method == 5) and self.input_constraints["bounds"].get("lower") is not None:
                     lower_bound = min(lower_bound, self.input_constraints["bounds"].get("lower"))
                 # Ensure that the value never goes above the base feature. -2 also means that ensure you don't clip down to the bound if the base feature is higher
-            elif method == 2 or method == 4 or method == 5:
+            elif method == 2 or method == 4 or method == 5:  # method == 5 is unreachable consider removing
                 upper_bound = original_value
                 if (method == 4 or method == 5) and self.input_constraints["bounds"].get("upper") is not None:
                     upper_bound = max(upper_bound, self.input_constraints["bounds"].get("upper"))
