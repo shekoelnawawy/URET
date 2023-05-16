@@ -8,12 +8,12 @@ class Increment(SubTransformer):
 
     name = "Increment"
 
-    def __init__(self, low=0, high=1, number_type="float", action_samples=10, sample_method="random"):
+    def __init__(self, low=[0, 0, 0, 0, 0, 0, 0], high=[1, 1, 1, 1, 1, 1, 1], number_type="float", action_samples=10, sample_method="random"):
         """
         Initialize an `Increment` object. This object increments an object by a numerical amount depending on the hyper
         parameters.
-        :param low: The lower bound (inclusive) to sample increment values from. It should be a non-negative number.
-        :param high: The upper bound (exclusive) to sample increment values from. It should be a non-negative number.
+        :param low: The lower bound (inclusive) to sample increment values from. It should be a tuple of non-negative numbers.
+        :param high: The upper bound (exclusive) to sample increment values from. It should be a tuple of non-negative numbers.
         :param number_type: specifies the type of number that is being modified. Currently supports "int" or "float"
         :param sample_num: Max number of samples generated when get_action_list() is called.
         :param sample_method: Determines how action samples are generated when get_action_list() is called
@@ -22,16 +22,16 @@ class Increment(SubTransformer):
             - geomspace: Generate sample using log spaced samples within the range (low, high)
         """
 
-        if abs(high) <= abs(low):
+        if any(np.less_equal(np.absolute(high), np.absolute(low))):
             raise ValueError("high must be greater than low")
 
-        self.low = abs(low)
-        self.high = abs(high)
+        self.low = np.absolute(low)
+        self.high = np.absolute(high)
 
         self.number_type = number_type
         if number_type == "int":
-            if high - low < int(action_samples / 2):  # Corner case so the number of samples isn't more than the range
-                self.action_samples = 2 * (high - low)
+            if max(np.subtract(high, low)) < int(action_samples / 2):  # Corner case so the number of samples isn't more than the range
+                self.action_samples = 2 * max(np.subtract(high, low))
             else:
                 self.action_samples = action_samples
         else:
@@ -71,8 +71,8 @@ class Increment(SubTransformer):
         else:
             increment_value = transformation_value
 
-        new_x = x + increment_value
-        transformation_record = transformation_record + increment_value
+        new_x = np.add(x, increment_value)
+        transformation_record = np.add(transformation_record, increment_value)
 
         return new_x, transformation_record
 
@@ -99,8 +99,7 @@ class Increment(SubTransformer):
                 increment_values = np.linspace(low, high, sample_num, endpoint=False)
 
         elif self.sample_method == "geomspace":
-            if low == 0:
-                low = 0.000001
+            low = [0.000001 if i == 0 else i for i in low]
             if self.number_type == "int":
                 increment_values = np.geomspace(low, high, sample_num, endpoint=False, dtype=int)
             elif self.number_type == "float":
@@ -109,7 +108,7 @@ class Increment(SubTransformer):
         increment_values = np.array(
             list(set(increment_values))
         )  # remove duplicates. This can be from geomspace with ints usually
-        increment_values = np.delete(increment_values, increment_values == 0)  # remove 0's
+        increment_values = np.delete(increment_values, increment_values == np.array(0, 0, 0, 0, 0, 0, 0))  # remove 0's
         
         increment_values = np.concatenate((-1 * increment_values, increment_values))  # Use positive and negative values
 

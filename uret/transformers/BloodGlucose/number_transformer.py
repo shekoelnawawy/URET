@@ -74,7 +74,7 @@ class NumberTransformer(Transformer):
         constraints
         """
 
-        return 0
+        return [0, 0, 0, 0, 0, 0, 0]
 
     def _enforce_constraints(self, x, transformation_record):
         """
@@ -86,23 +86,22 @@ class NumberTransformer(Transformer):
         :return: A "clipped" input and corrected trasnformation record
         """
 
-        original_value = x - transformation_record
+        original_value = np.subtract(x, transformation_record)
         clipped_x = x
         if "eps" in self.input_constraints:
             # Absolute clipping - Clip based on a flat amount from the original value
             if self.input_constraints["eps"]["type"] == "abs":
                 clipped_x = np.clip(
                     clipped_x,
-                    original_value - self.input_constraints["eps"]["value"],
-                    original_value + self.input_constraints["eps"]["value"],
+                    np.subtract(original_value, self.input_constraints["eps"]["value"]),
+                    np.add(original_value, self.input_constraints["eps"]["value"]),
                 )
             # relative clipping - Clip based on a percentage of the original value
             else:
                 clipped_x = np.clip(
                     clipped_x,
-                    original_value - (original_value * self.input_constraints["eps"]["value"]),
-                    original_value
-                    + (original_value * self.input_constraints["eps"]["value"]),
+                    np.subtract(original_value, np.multiply(original_value * self.input_constraints["eps"]["value"])),
+                    np.add(original_value, np.multiply(original_value * self.input_constraints["eps"]["value"])),
                 )
         if "bounds" in self.input_constraints:
             method = self.input_constraints["bounds"]["method"]
@@ -124,15 +123,15 @@ class NumberTransformer(Transformer):
             if method == 1 or method == 3 or method == 5:
                 lower_bound = original_value
                 if (method == 3 or method == 5) and self.input_constraints["bounds"].get("lower") is not None:
-                    lower_bound = min(lower_bound, self.input_constraints["bounds"].get("lower"))
+                    lower_bound = np.minimum(lower_bound, self.input_constraints["bounds"].get("lower"))
                 # Ensure that the value never goes above the base feature. -2 also means that ensure you don't clip down to the bound if the base feature is higher
             elif method == 2 or method == 4 or method == 5:  # method == 5 is unreachable since it appears in if and elif, consider rewriting
                 upper_bound = original_value
                 if (method == 4 or method == 5) and self.input_constraints["bounds"].get("upper") is not None:
-                    upper_bound = max(upper_bound, self.input_constraints["bounds"].get("upper"))
+                    upper_bound = np.maximum(upper_bound, self.input_constraints["bounds"].get("upper"))
 
             clipped_x = np.clip(clipped_x, lower_bound, upper_bound)
-        corrected_transformation_record = transformation_record + (clipped_x - x)
+        corrected_transformation_record = np.add(transformation_record, np.subtract(clipped_x - x))
         return clipped_x, corrected_transformation_record
 
     def _is_possible(self, x, transformation_record=None, transformation_value=None):
@@ -151,13 +150,13 @@ class NumberTransformer(Transformer):
 
         possible, action_args, transformation_effect = self.subtransformer_list[transformation_value[0]].is_possible(
             x, *transformation_value[1:]
-        )
+        )  # check for modifications
 
         if not possible:
             return False, []
 
         # Validates the action with respect to the input constraints
-        original_value = x - transformation_record
+        original_value = np.subtract(x, transformation_record)
         # Action is invalid if the transformation record is at an eps boundary and the action's effect would move past it
         if "eps" in self.input_constraints:
             # Absolute clipping - Clip based on a flat amount from the original value.
@@ -165,11 +164,11 @@ class NumberTransformer(Transformer):
                 max_delta = self.input_constraints["eps"]["value"]
             # relative clipping - Clip based on a percentage of the original value.
             else:
-                max_delta = (x - transformation_record) * self.input_constraints["eps"]["value"]
+                max_delta = np.multiply(np.subtract(x, transformation_record), self.input_constraints["eps"]["value"])
 
-            if (transformation_effect > 0 and transformation_record >= max_delta) or (
-                transformation_effect < 0 and transformation_record <= -1 * max_delta
-            ):
+            if any(np.logical_and(np.greater(transformation_effect, 0), np.greater_equal(transformation_record, max_delta))) or any(np.logical_and(
+                np.less(transformation_effect, 0), np.less_equal(transformation_record, (-1 * max_delta)))
+            ):  # check for modifications
                 return False, []
 
         # Action is invalid if x is at an boundary for the range of valid values and the action's effect would move past it
@@ -189,19 +188,19 @@ class NumberTransformer(Transformer):
             # 0
             lower_bound = self.input_constraints["bounds"].get("lower")
             upper_bound = self.input_constraints["bounds"].get("upper")
-            
+
             if method == 1 or method == 3 or method == 5:
                 lower_bound = original_value
                 if (method == 3 or method == 5) and self.input_constraints["bounds"].get("lower") is not None:
-                    lower_bound = min(lower_bound, self.input_constraints["bounds"].get("lower"))
+                    lower_bound = np.minimum(lower_bound, self.input_constraints["bounds"].get("lower"))
                 # Ensure that the value never goes above the base feature. -2 also means that ensure you don't clip down to the bound if the base feature is higher
             elif method == 2 or method == 4 or method == 5:
                 upper_bound = original_value
                 if (method == 4 or method == 5) and self.input_constraints["bounds"].get("upper") is not None:
-                    upper_bound = max(upper_bound, self.input_constraints["bounds"].get("upper"))
+                    upper_bound = np.maximum(upper_bound, self.input_constraints["bounds"].get("upper"))
                 
 
-            if (transformation_effect > 0 and x >= upper_bound) or (transformation_effect < 0 and x <= lower_bound):
+            if any(np.logical_and(np.greater(transformation_effect, 0), np.greater_equal(x, upper_bound))) or any(np.logical_and(np.less(transformation_effect, 0), np.less_equal(x, lower_bound))):
                 return False, []
 
         return True, action_args
