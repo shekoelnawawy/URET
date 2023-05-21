@@ -10,7 +10,7 @@ class NumberTransformer(Transformer):
     def __init__(self, subtransformer_args, input_constraints={}, input_processor=None, number_type="float"):
         """
         Initialize a `NumberTransformer` object.
-        :param subtransformer_list: The functions to be used to transform the input of a certain data type.
+        :param subtransformer_args: The functions to be used to transform the input of a certain data type.
         :param input_constraints: The constraints to enforce on the input after transformation. The possible enforcement values
         are:
             - "bounds": Should be in the form (lower, upper, method). Mix and max indicate the end points of possible values for
@@ -45,16 +45,16 @@ class NumberTransformer(Transformer):
                     input_constraints[key], float
                 ):  # If not provided, it is asumed to be abs
                     input_constraints[key] = {}
-                    input_constraints[key]["value"] = 0   # temp_val
+                    input_constraints[key]["value"] = [0, 0, 0, 0, 0, 0, 0]   # temp_val
                     input_constraints[key]["type"] = "abs"
                 elif "type" not in input_constraints[key].keys():
                     input_constraints[key]["type"] = "abs"
                 elif "value" not in input_constraints[key].keys():
                     raise ValueError("Value must be provided for eps constraint")
-                elif input_constraints[key]["type"] == "rel" and abs(input_constraints[key]["value"]) > 1:
+                elif input_constraints[key]["type"] == "rel" and any(np.greater(np.absolute(input_constraints[key]["value"]), 1)):
                     raise ValueError("Illegal value. With relative eps, the value must be in the range (0,1]")
 
-        input_constraints["eps"]["value"] = abs(input_constraints["eps"]["value"])
+        input_constraints["eps"]["value"] = np.absolute(input_constraints["eps"]["value"])
 
         for args in subtransformer_args:
             if "init_args" in args.keys():
